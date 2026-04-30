@@ -1,1 +1,1 @@
-# BambooP2S-slack-notifier
+# arduino-bambuP2S-slack-notifier
