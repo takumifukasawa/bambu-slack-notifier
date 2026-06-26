@@ -1,21 +1,21 @@
 // secrets.example.h
-// このファイルを secrets.h にコピーして、自分の環境の値を埋めてください。
+// Copy this file to secrets.h and fill in the values for your environment:
 //   cp secrets.example.h secrets.h
-// secrets.h は .gitignore で除外されるのでコミットされません。
+// secrets.h is excluded by .gitignore, so it is never committed.
 #pragma once
 
 // --- Wi-Fi ---
 #define WIFI_SSID      "YOUR_WIFI_SSID"
 #define WIFI_PASSWORD  "YOUR_WIFI_PASSWORD"
 
-// --- Bambu プリンター (LAN) ---
-// プリンターのIPアドレス（プリンター画面 設定 > ネットワーク で確認）
+// --- Bambu printer (LAN) ---
+// Printer IP address (printer screen: Settings > Network)
 #define MQTT_SERVER    "192.168.x.x"
-// LAN Access Code（プリンター画面 設定 > ネットワーク のアクセスコード）
+// LAN Access Code (printer screen: Settings > Network)
 #define MQTT_PASSWORD  "XXXXXXXX"
-// 購読トピック。シリアル番号(SN)を埋める: device/<SN>/report
+// Subscribe topic. Fill in the serial number (SN): device/<SN>/report
 #define MQTT_TOPIC     "device/YOUR_PRINTER_SERIAL/report"
 
 // --- Slack ---
-// Incoming Webhook URL（Slack App の Incoming Webhooks で発行）
+// Incoming Webhook URL (issued under Incoming Webhooks in your Slack App)
 #define SLACK_WEBHOOK  "https://hooks.slack.com/services/XXXX/XXXX/XXXX"

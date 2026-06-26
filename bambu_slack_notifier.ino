@@ -7,17 +7,26 @@
 #include "secrets.h"
 
 // ==========================================
-// 設定値は secrets.h に記述（secrets.example.h をコピーして作成）
+// Config lives in secrets.h (copy secrets.example.h to create it)
 // ==========================================
-const char* ssid = WIFI_SSID;          // Wi-Fiの名前
-const char* password = WIFI_PASSWORD;  // Wi-Fiのパスワード
+const char* ssid = WIFI_SSID;          // Wi-Fi SSID
+const char* password = WIFI_PASSWORD;  // Wi-Fi password
 
-const char* mqtt_server = MQTT_SERVER;      // プリンターのローカルIPアドレス
-const char* mqtt_user = "bblp";               // Bambuは「bblp」固定
-const char* mqtt_password = MQTT_PASSWORD; // プリンター画面のLAN Access Code
-const char* mqtt_topic = MQTT_TOPIC; // device/<シリアル番号>/report
+const char* mqtt_server = MQTT_SERVER;      // Printer's local IP address
+const char* mqtt_user = "bblp";               // Fixed as "bblp" on Bambu
+const char* mqtt_password = MQTT_PASSWORD; // LAN Access Code from the printer screen
+const char* mqtt_topic = MQTT_TOPIC; // device/<serial-number>/report
 
-const char* slack_webhook_url = SLACK_WEBHOOK; // SlackのWebhook URL
+const char* slack_webhook_url = SLACK_WEBHOOK; // Slack Webhook URL
+// ==========================================
+
+// ==========================================
+// Slack notification messages (edit freely / translate here)
+// Static messages are plain constants; the dynamic "start" message is
+// assembled in buildStartMessage() / formatDuration() below.
+// ==========================================
+const char* MSG_FINISH = "✅ プリントが正常に完了しました！";
+const char* MSG_PAUSE  = "⚠️ プリントが一時停止、またはエラーが発生しました。";
 // ==========================================
 
 WiFiClientSecure espClient;
@@ -26,13 +35,13 @@ PubSubClient client(espClient);
 String currentState = "UNKNOWN";
 bool isStartNotified = false;
 
-const long gmtOffset_sec = 32400; // 日本標準時 (9時間 * 3600秒)
+const long gmtOffset_sec = 32400; // JST (9 hours * 3600 sec)
 const int daylightOffset_sec = 0;
 
-// Slackへメッセージを送る関数
+// Send a message to Slack
 void sendSlackMessage(String message) {
   // for debug
-  // Serial.println("★Slack通知テスト送信予定の内容:");
+  // Serial.println("Slack notification preview:");
   // Serial.println(message);
   // return;
 
@@ -41,19 +50,41 @@ void sendSlackMessage(String message) {
     http.begin(slack_webhook_url);
     http.addHeader("Content-Type", "application/json");
 
-    // JSON形式でペイロードを作成
+    // Build the JSON payload
     String payload = "{\"text\":\"" + message + "\"}";
-    
+
     int httpResponseCode = http.POST(payload);
-    Serial.print("Slack送信結果 (HTTPコード): ");
+    Serial.print("Slack POST result (HTTP code): ");
     Serial.println(httpResponseCode);
     http.end();
   }
 }
 
+// Format a duration in minutes, e.g. "2時間30分" / "30分".
+// To translate, rewrite the returned strings (word order is free here).
+String formatDuration(int totalMinutes) {
+  int hours = totalMinutes / 60;
+  int mins = totalMinutes % 60;
+  if (hours > 0) {
+    return String(hours) + "時間" + String(mins) + "分";
+  }
+  return String(mins) + "分";
+}
+
+// Build the whole "print started" message.
+// finishTime is the expected finish time (e.g. "14:30"); empty to omit it.
+// To translate, edit this function body in one place.
+String buildStartMessage(int remainingMinutes, const String& finishTime) {
+  String msg = "🚀 プリントを開始しました！\n合計推定時間: " + formatDuration(remainingMinutes);
+  if (finishTime.length() > 0) {
+    msg += "\n完了予定時刻: " + finishTime;
+  }
+  return msg;
+}
+
 void callback(char* topic, byte* payload, unsigned int length) {
   // for debug
-  // Serial.print("【データ受信】サイズ: ");
+  // Serial.print("[received] size: ");
   // Serial.println(length);
 
   String messageTemp;
@@ -65,27 +96,27 @@ void callback(char* topic, byte* payload, unsigned int length) {
   DeserializationError error = deserializeJson(doc, messageTemp);
 
   if (error) {
-    // JSONが大きすぎて解読できない場合はバッファ不足の可能性あり
-    Serial.println("JSON解読エラー: データのサイズが大きすぎます");
+    // If the JSON is too large to parse, the buffer may be too small
+    Serial.println("JSON parse error: payload size is too large");
     return;
   }
 
-  // for debug：受信したデータの中に何が入っているか確認
+  // Check what the received payload contains
   bool hasPrint = doc.containsKey("print");
   bool hasGcodeState = hasPrint && doc["print"].containsKey("gcode_state");
   bool hasRemainingTime = hasPrint && doc["print"].containsKey("mc_remaining_time");
 
-  // 1. 状態(gcode_state)の更新
+  // 1. Update the state (gcode_state)
   if (hasGcodeState) {
     String newState = doc["print"]["gcode_state"].as<String>();
     if (newState != currentState && currentState != "UNKNOWN") {
-      Serial.println("状態変化検知: " + currentState + " -> " + newState);
-      
+      Serial.println("State change detected: " + currentState + " -> " + newState);
+
       if (newState == "FINISH") {
-        sendSlackMessage("✅ プリントが正常に完了しました！");
+        sendSlackMessage(MSG_FINISH);
         isStartNotified = false;
       } else if (newState == "PAUSE" || newState == "FAILED") {
-        sendSlackMessage("⚠️ プリントが一時停止、またはエラーが発生しました。");
+        sendSlackMessage(MSG_PAUSE);
         isStartNotified = false;
       } else if (newState == "IDLE") {
         isStartNotified = false;
@@ -94,41 +125,28 @@ void callback(char* topic, byte* payload, unsigned int length) {
     currentState = newState;
   }
 
-  // 2. 開始通知の処理
+  // 2. Handle the start notification
   if (currentState == "RUNNING" && !isStartNotified) {
     if (hasRemainingTime) {
       int remainingTime = doc["print"]["mc_remaining_time"].as<int>();
-      
-      if (remainingTime > 0) {
-        // --- ここから「時間・分」への変換ロジック ---
-        int hours = remainingTime / 60;
-        int mins = remainingTime % 60;
-        String durationStr = "";
-        
-        if (hours > 0) {
-          durationStr = String(hours) + "時間" + String(mins) + "分";
-        } else {
-          durationStr = String(mins) + "分";
-        }
-        // ----------------------------------------
 
-        String msg = "🚀 プリントを開始しました！\n合計推定時間: " + durationStr;
-        
-        // 完了予定時刻の計算（ここは以前のまま）
+      if (remainingTime > 0) {
+        // Compute the expected finish time (empty if NTP not ready yet)
+        String finishTime = "";
         time_t now;
         struct tm timeinfo;
         if (getLocalTime(&timeinfo)) {
           time(&now);
           now += (remainingTime * 60);
-          struct tm *finishTime = localtime(&now);
+          struct tm *finish = localtime(&now);
           char timeStr[10];
-          strftime(timeStr, sizeof(timeStr), "%H:%M", finishTime);
-          msg += "\n完了予定時刻: " + String(timeStr);
+          strftime(timeStr, sizeof(timeStr), "%H:%M", finish);
+          finishTime = String(timeStr);
         }
 
-        sendSlackMessage(msg);
+        sendSlackMessage(buildStartMessage(remainingTime, finishTime));
         isStartNotified = true;
-        Serial.println("Slackへ通知を送信しました: " + durationStr);
+        Serial.println("Sent notification to Slack: " + formatDuration(remainingTime));
       }
     }
   }
@@ -147,25 +165,25 @@ void setup_wifi() {
   Serial.println("\nWiFi connected! IP:");
   Serial.println(WiFi.localIP());
 
-  Serial.flush(); 
+  Serial.flush();
 }
 
 void reconnect() {
-  // MQTTに接続できるまでループ
+  // Loop until connected to MQTT
   while (!client.connected()) {
-    Serial.print("BambuプリンターのMQTTへ接続中...");
-    
-    // 任意のクライアントIDで接続
+    Serial.print("Connecting to the Bambu printer's MQTT...");
+
+    // Connect with an arbitrary client ID
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
-    
+
     if (client.connect(clientId.c_str(), mqtt_user, mqtt_password)) {
-      Serial.println("接続成功！");
+      Serial.println("connected!");
       client.subscribe(mqtt_topic);
     } else {
-      Serial.print("失敗しました。ステータス: ");
+      Serial.print("failed, state: ");
       Serial.print(client.state());
-      Serial.println(" 5秒後に再試行します...");
+      Serial.println(" retrying in 5 seconds...");
       delay(5000);
     }
   }
@@ -173,9 +191,9 @@ void reconnect() {
 
 void setup() {
   Serial.begin(115200);
-  
+
   setup_wifi();
-  
+
   Serial.println("Step 1: Wi-Fi OK, waiting 1 sec...");
   Serial.flush();
   delay(1000);
@@ -186,7 +204,7 @@ void setup() {
 
   Serial.println("Step 3: MQTT setup...");
   Serial.flush();
-  espClient.setInsecure(); 
+  espClient.setInsecure();
   client.setServer(mqtt_server, 8883);
   client.setCallback(callback);
   client.setBufferSize(32768);

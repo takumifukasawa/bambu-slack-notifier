@@ -1,37 +1,37 @@
 # bambu-slack-notifier
 
-ESP32 で Bambu Lab プリンター（A1 mini / P2S など）の MQTT を購読し、プリント状態の変化を Slack に通知するスケッチです。機種に依存せず、接続情報は `secrets.h` で切り替えます。
+An ESP32 sketch that subscribes to a Bambu Lab printer's MQTT feed (A1 mini / P2S, etc.) and posts print-status changes to Slack. It is printer-model agnostic — connection details are switched via `secrets.h`.
 
-- プリント開始時に「合計推定時間」と「完了予定時刻」を通知
-- 完了 / 一時停止・失敗 を通知
+- On print start: notifies the total estimated time and the expected finish time
+- Notifies on completion / pause / failure
 
-## 必要なもの
+## Requirements
 
-- ESP32 ボード
-- Arduino IDE（ESP32 ボードサポート導入済み）
-- ライブラリ: `PubSubClient`, `ArduinoJson`(v7)
-- LAN モードを有効にした Bambu プリンター（IP / アクセスコード / シリアル番号）
-- Slack の Incoming Webhook URL
+- An ESP32 board
+- Arduino IDE (with ESP32 board support installed)
+- Libraries: `PubSubClient`, `ArduinoJson` (v7)
+- A Bambu printer with LAN mode enabled (IP / access code / serial number)
+- A Slack Incoming Webhook URL
 
-## セットアップ
+## Setup
 
-1. このフォルダ内の `secrets.example.h` を `secrets.h` にコピー
+1. Copy `secrets.example.h` to `secrets.h` in this folder:
    ```sh
    cp secrets.example.h secrets.h
    ```
-2. `secrets.h` を開き、自分の環境の値を記入
-   | 項目 | 取得場所 |
+2. Open `secrets.h` and fill in the values for your environment:
+   | Field | Where to find it |
    |---|---|
-   | `WIFI_SSID` / `WIFI_PASSWORD` | 接続する Wi-Fi |
-   | `MQTT_SERVER` | プリンター画面 設定 > ネットワーク の IP アドレス |
-   | `MQTT_PASSWORD` | 同上の LAN Access Code |
-   | `MQTT_TOPIC` | `device/<シリアル番号>/report` の形式で記入 |
-   | `SLACK_WEBHOOK` | Slack App の Incoming Webhooks で発行した URL |
-3. Arduino IDE でこのスケッチを開き、ESP32 に書き込み
+   | `WIFI_SSID` / `WIFI_PASSWORD` | The Wi-Fi network to connect to |
+   | `MQTT_SERVER` | Printer screen: Settings > Network > IP address |
+   | `MQTT_PASSWORD` | Same screen: the LAN Access Code |
+   | `MQTT_TOPIC` | Use the form `device/<serial-number>/report` |
+   | `SLACK_WEBHOOK` | The URL issued under Incoming Webhooks in your Slack App |
+3. Open this sketch in the Arduino IDE and flash it to the ESP32.
 
-`secrets.h` は `.gitignore` で除外されるためコミットされません。実値はここにだけ置いてください。
+`secrets.h` is excluded by `.gitignore`, so it is never committed. Keep your real values only there.
 
-## 注意
+## Notes
 
-- `mqtt_user` は Bambu 固定の `bblp` のためコード内に直書きしています。
-- MQTT は TLS(8883) ＋ `setInsecure()` で接続します。
+- `mqtt_user` is hardcoded as `bblp` (fixed by Bambu).
+- MQTT connects over TLS (port 8883) using `setInsecure()`.
