@@ -4,19 +4,20 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <time.h>
+#include "secrets.h"
 
 // ==========================================
-// 環境に合わせて書き換える設定値
+// 設定値は secrets.h に記述（secrets.example.h をコピーして作成）
 // ==========================================
-const char* ssid = "";          // Wi-Fiの名前
-const char* password = "";  // Wi-Fiのパスワード
+const char* ssid = WIFI_SSID;          // Wi-Fiの名前
+const char* password = WIFI_PASSWORD;  // Wi-Fiのパスワード
 
-const char* mqtt_server = "";      // プリンターのローカルIPアドレス
-const char* mqtt_user = "";               // Bambuは「bblp」固定
-const char* mqtt_password = ""; // プリンター画面のLAN Access Code
-const char* mqtt_topic = ""; // シリアル番号を入れる
+const char* mqtt_server = MQTT_SERVER;      // プリンターのローカルIPアドレス
+const char* mqtt_user = "bblp";               // Bambuは「bblp」固定
+const char* mqtt_password = MQTT_PASSWORD; // プリンター画面のLAN Access Code
+const char* mqtt_topic = MQTT_TOPIC; // device/<シリアル番号>/report
 
-const char* slack_webhook_url = ""; // SlackのWebhook URL
+const char* slack_webhook_url = SLACK_WEBHOOK; // SlackのWebhook URL
 // ==========================================
 
 WiFiClientSecure espClient;

@@ -68,3 +68,8 @@ avr-toolchain-*.zip
 manifest.mf
 nbbuild.xml
 nbproject
+
+# 機密情報（Wi-Fi/プリンター/Slack）— コミットしない
+secrets.h
+secrets_*.h
+!secrets.example.h
