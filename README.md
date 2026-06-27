@@ -35,3 +35,7 @@ An ESP32 sketch that subscribes to a Bambu Lab printer's MQTT feed (A1 mini / P2
 
 - `mqtt_user` is hardcoded as `bblp` (fixed by Bambu).
 - MQTT connects over TLS (port 8883) using `setInsecure()`.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
