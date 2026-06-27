@@ -13,6 +13,17 @@ An ESP32 sketch that subscribes to a Bambu Lab printer's MQTT feed (A1 mini / P2
 - A Bambu printer with LAN mode enabled (IP / access code / serial number)
 - A Slack Incoming Webhook URL
 
+### Tested with
+
+Other versions likely work too; this is just a known-good reference.
+
+| Component | Version |
+|---|---|
+| Arduino IDE | 2.3.8 |
+| ESP32 core (arduino-esp32) | 3.3.7 |
+| ArduinoJson | 7.4.3 |
+| PubSubClient | 2.8 |
+
 ## Arduino IDE setup
 
 1. **Install ESP32 board support.** In Preferences, add this URL to *Additional boards manager URLs*:
